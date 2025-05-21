@@ -3,7 +3,6 @@ cbuffer global : register(b5)
     float4 gConst[32];
 };
 
-
 cbuffer frame : register(b4)
 {
     float4 time;
@@ -17,6 +16,7 @@ cbuffer camera : register(b3)
     float4x4 world[2];
     float4x4 view[2];
     float4x4 proj[2];
+    float4x4 eye[2];
 };
 
 cbuffer drawMat : register(b2)
@@ -43,6 +43,7 @@ struct VS_OUTPUT
     float2 metallic : TEXCOORD1;
     float4 albedo : TEXCOORD2;
     float2 roughness : TEXCOORD3;
+    float4 lpos : POSITION2;
 };
 
 float3 rotY(float3 pos, float a)
@@ -90,7 +91,6 @@ float3 cubeToSphere(float3 p)
 {
     return normalize(p);
 }
-
 float3 calcGeom(float2 uv, int faceID)
 {
     float2 p = uv * 2.0 - 1.0;
@@ -165,7 +165,7 @@ VS_OUTPUT VS(uint vID : SV_VertexID, uint iID : SV_InstanceID)
     pos.y = pos.y + 5;
     pos.x = pos.x - t * 3;
     pos.y = pos.y - s * 2.5;
-    pos *= 0.35;
+    pos *= 0.35f;
     float3 albedo;
     float metallic;
     float roughness;
@@ -174,12 +174,7 @@ VS_OUTPUT VS(uint vID : SV_VertexID, uint iID : SV_InstanceID)
         albedo = float3(0.95, 0.95, 0.95);
         metallic = 1.0;
         roughness = 0.1;
-    }
-    else if (t == 3.0 && s == 1.0) {
-        // Золото
-        albedo = float3(1.00, 0.71, 0.29);
-        metallic = 1.0;
-        roughness = 0.3;
+
     }
     else if (t == 2.0 && s == 1.0) {
         // Железо
@@ -198,6 +193,15 @@ VS_OUTPUT VS(uint vID : SV_VertexID, uint iID : SV_InstanceID)
         albedo = float3(0.015, 0.015, 0.015);
         metallic = 0.0;
         roughness = 0.9;
+        if (vID < 6)
+        {
+            pos = float3(quad[vID % 6].x * 3, -3, quad[vID % 6].y * 3);
+        }
+        else if (vID < 6)
+        {
+            pos = float3(quad[vID % 6].x * 3, -3, quad[vID % 6].y * 3);
+        }
+
     }
     else if (s == 2.0) {
         // Для второго ряда - градация roughness
@@ -217,7 +221,7 @@ VS_OUTPUT VS(uint vID : SV_VertexID, uint iID : SV_InstanceID)
         metallic = 0.5;
         roughness = 0.5;
     }
-    
+
     output.wpos = float4(pos, 1.0);
     output.vpos = mul(float4(pos, 1.0), view[0]);
     output.pos = mul(float4(pos, 1.0), mul(view[0], proj[0]));
@@ -228,5 +232,7 @@ VS_OUTPUT VS(uint vID : SV_VertexID, uint iID : SV_InstanceID)
     output.metallic = float2(metallic, 1);
     output.albedo = float4(albedo, 1);
     output.roughness = float2(roughness, 1);
+    output.lpos = mul(output.wpos, mul(view[1], proj[1]));
+
     return output;
 }

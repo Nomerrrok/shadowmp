@@ -162,11 +162,14 @@
 //    float3 finalColor = kD * diffuse + kS;
 //    return float4(finalColor, 1.0);
 
+
+Texture2D shadowMap : register(t0);
+SamplerState shadowSampler : register(s0);
+
 cbuffer global : register(b5)
 {
     float4 gConst[32];
 };
-
 
 cbuffer frame : register(b4)
 {
@@ -204,6 +207,7 @@ struct VS_OUTPUT
     float2 metallic : TEXCOORD1;
     float4 albedo : TEXCOORD2;
     float2 roughness : TEXCOORD3;
+    float4 lpos : POSITION2;
 };
 
 /////////////////////////////////////////////////////////
@@ -254,6 +258,7 @@ float3 getcolor(float2 uv)
 }
 
 //normal functions
+//both function are modified version of https://www.shadertoy.com/view/XtV3z3
 float lum(float2 uv) {
     float3 rgb = getcolor(uv);
     return 0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b;
@@ -314,7 +319,6 @@ float3 env(float3 v)
     a = pow(a, 24) * 10;
     a *= saturate(-v.y);
     a += saturate(1 - 2 * length(v.xz)) * saturate(v.y) * 44;
-
     return float3(a, a, a);
 }
 
@@ -425,6 +429,31 @@ float4 PS(VS_OUTPUT input) : SV_Target
     float metallic = input.metallic.x;
     float roughness = input.roughness.x;
 
+    //re-homogenize position after interpolation
+    input.lpos.xyz /= input.lpos.w;
+    float4 ambient = float4(0.1,0.1,0.1,1);
+    //if position is not visible to the light - dont illuminate it
+    //results in hard light frustum
+ //   if (input.lpos.x < -1.0f || input.lpos.x > 1.0f ||
+ //       input.lpos.y < -1.0f || input.lpos.y > 1.0f ||
+ //       input.lpos.z < 0.0f || input.lpos.z > 1.0f) return ambient;
+
+    //transform clip space coords to texture space coords (-1:1 to 0:1)
+    input.lpos.x = input.lpos.x / 2 + 0.5;
+    input.lpos.y = input.lpos.y / -2 + 0.5;
+
+    //sample shadow map - point sampler
+    float shadowMapDepth = shadowMap.Sample(shadowSampler, input.lpos.xy).r;
+
+    //if clip space z value greater than shadow map value then pixel is in shadow
+    
+    //otherwise calculate ilumination at fragment
+
+    float3 lightPos = -(view[1]._m02_m12_m22) * view[1]._m32;
+    float3 L = normalize(lightPos - input.wpos.xyz);
+    float ndotl = dot(fn, L);
+
+
     //vnorm *= float3(1, -1, 1);
     //float3 camera_pos = float3(0, 0, -1);
     //float cosTheta = dot(lightDir, N);
@@ -485,14 +514,18 @@ float4 PS(VS_OUTPUT input) : SV_Target
     float3 kD = (1.0 - kS) * (1.0 - metallic);
 
     // Финальный цвет
-    float3 diffuse = kD * albedo * (1.0 / PI) * diffuseIrradiance;
-    float3 finalColor = diffuse + specularReflection;
+    float4 diffuse = float4(kD * albedo * (1.0 / PI) * diffuseIrradiance,1);
 
-    finalColor = ACESFilm(finalColor);
-    finalColor = pow(finalColor, 1.0 / 2.2);
-    return float4(finalColor, 1.0);
- 
-    //return (input.vnorm/2+.5);
+    // return ambient + diffuse * ndotl;
+     float3 finalColor = diffuse * ndotl + specularReflection;
+
+     finalColor = ACESFilm(finalColor);
+     finalColor = pow(finalColor , 1.0 / 2.2);
+     float bias = 0.000003;
+
+     if (shadowMapDepth < input.lpos.z- bias) return float4(diffuse);
+     return float4(finalColor, 1.0);
+     //return (input.vnorm/2+.5);
 }
 
 // return float4(st,0, 1.0);
