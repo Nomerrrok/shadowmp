@@ -1,14 +1,15 @@
-Texture2D shadowMap : register(t0);
-SamplerState shadowSampler : register(s0);
 
-struct VS_OUT
+
+struct VS_OUTPUT
 {
     float4 pos : SV_POSITION;
-    float2 uv : TEXCOORD0;
+    float4 vpos : POSITION0;
+    float4 wpos : POSITION1;
+    float4 lpos : TEXCOORD0;
+    float3 normal : NORMAL;
 };
 
-float4 PS(VS_OUT input) : SV_TARGET
+float4 PS(VS_OUTPUT input) : SV_Target
 {
-    float depth = shadowMap.SampleLevel(shadowSampler, input.uv, 0).r;
-    return float4(depth.xxx, 1);
+    return 0;
 }

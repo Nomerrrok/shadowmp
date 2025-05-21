@@ -503,8 +503,6 @@ namespace Shaders {
 		CreatePS(0, nameToPatchLPCWSTR("PS.h"));
 		CreateVS(1, nameToPatchLPCWSTR("VSW.h"));
 		CreatePS(1, nameToPatchLPCWSTR("PSW.h"));
-		CreateVS(2, nameToPatchLPCWSTR("VSS.h"));
-		CreatePS(2, nameToPatchLPCWSTR("PSS.h"));
 	}
 
 	void vShader(unsigned int n)
@@ -609,6 +607,8 @@ namespace ConstBuf
 		XMMATRIX world[2];
 		XMMATRIX view[2];
 		XMMATRIX proj[2];
+		XMMATRIX Ppos[2];
+		XMVECTOR eye[2];
 	} camera;
 
 
@@ -892,7 +892,7 @@ void Dx11Init()
 	//main RT
 	Textures::Create(0, Textures::tType::flat, Textures::tFormat::u8, XMFLOAT2(width, height), false, true);
 	//rt1
-	Textures::Create(1, Textures::tType::flat, Textures::tFormat::u8, XMFLOAT2(width, height), false, true);
+	Textures::Create(1, Textures::tType::flat, Textures::tFormat::s16, XMFLOAT2(width, height), false, true);
 	//rt2
 	Textures::Create(2, Textures::tType::flat, Textures::tFormat::u8, XMFLOAT2(width, height), false, true);
 }
@@ -969,22 +969,21 @@ namespace Camera
 		float t = timer::frameBeginTime * 0.001;
 		float angle = 70;
 		float a = 3.5;
-		XMVECTOR Eye = XMVectorSet(sin(t) * a, 0, cos(t) * a, 0.0f);
+		XMVECTOR Eye = XMVectorSet(sin(t) * a, 2, cos(t) * a, 0.0f);
 		XMVECTOR At = XMVectorSet(0, 0, 0, 0.0f);
 		XMVECTOR Up = XMVectorSet(0, 1, 0, 0.0f);
 
 		ConstBuf::camera.world[0] = XMMatrixIdentity();
 		ConstBuf::camera.view[0] = XMMatrixTranspose(XMMatrixLookAtLH(Eye, At, Up));
 		ConstBuf::camera.proj[0] = XMMatrixTranspose(XMMatrixPerspectiveFovLH(DegreesToRadians(angle), iaspect, 0.01f, 100.0f));
-
 		float lt = timer::frameBeginTime * 0.001;
 		float langle = 70;
 		float la = 3.5;
-		XMVECTOR lEye = XMVectorSet(0, 3.5, 2, 0);
+		XMVECTOR lEye = XMVectorSet(0, 10, 2, 0);
 		XMVECTOR lAt = XMVectorSet(0, 0, 0, 0.0f);
 		XMVECTOR lUp = XMVectorSet(0, 0, 1, 0.0f);
 		float near_plane = 1.0f;
-		float far_plane = 10.5f;
+		float far_plane = 20.5f;
 		ConstBuf::camera.world[1] = XMMatrixIdentity();
 		ConstBuf::camera.view[1] = XMMatrixTranspose(XMMatrixLookAtLH(lEye, lAt, lUp));
 		ConstBuf::camera.proj[1] = XMMatrixTranspose(XMMatrixOrthographicLH(10, 5, near_plane, far_plane));
@@ -1008,7 +1007,7 @@ void mainLoop()
 	Depth::Depth(Depth::depthmode::on);
 	Rasterizer::Cull(Rasterizer::cullmode::front);
 
-	Shaders::vShader(2);
+	Shaders::vShader(1);
 	context->PSSetShader(nullptr, nullptr, 0);
 
 	int grid = 8;
@@ -1021,24 +1020,24 @@ void mainLoop()
 	ConstBuf::drawerV[0] = grid;
 	ConstBuf::drawerV[1] = grid;
 
-	Draw::NullDrawer(count * 6, 15);
+	Draw::NullDrawer(count *6, 15);
 
 
 
-	Textures::RenderTarget(0, 0);      
-	Draw::Clear({ 0, 0, 0, 0 });       
-	Draw::ClearDepth();                
+	Textures::RenderTarget(0, 0);
+	Draw::Clear({ 0, 0, 0, 0 });
+	Draw::ClearDepth();
 
 	Depth::Depth(Depth::depthmode::on);
 	Rasterizer::Cull(Rasterizer::cullmode::off);
 
 	Sampler::Sampler(targetshader::pixel, 0, Sampler::filter::linear, Sampler::addr::clamp, Sampler::addr::clamp);
-	context->PSSetShaderResources(0, 1, &Textures::Texture[1].DepthResView);  // Связываем теневую карту
+	context->PSSetShaderResources(0, 1, &Textures::Texture[1].DepthResView);
 
-	Shaders::vShader(1);
-	Shaders::pShader(1);
+	Shaders::vShader(0);
+	Shaders::pShader(0);
 
-	Draw::NullDrawer(1, 1);  
+	Draw::NullDrawer(count*6, 15);
 
 	Draw::Present();
 }
